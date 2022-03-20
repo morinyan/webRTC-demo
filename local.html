@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo</title>
+    <style>
+        video {
+            width: 320px;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" />
+    <video id="localVideo" autoplay playsinline></video>
+
+    <div>
+        <button id="startBtn">打开本地视频</button>
+        <button id="callBtn">建立连接</button>
+        <button id="hangupBtn">断开连接</button>
+    </div>
+</body>
+</html>
+<script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+<script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+
+<script>
+// 本地流和远端流
+let localStream;
+
+// 本地和远端连接对象
+let localPeerConnection;
+let remotePeerConnection;
+
+// 本地视频和远端视频
+const localVideo = document.getElementById('localVideo');
+
+var socket = io();
+var userId = Math.floor(Math.random() * 1000);
+
+socket.on('chat message', function(msg){
+    console.log('信息:', msg);
+});
+
+socket.emit('chat message', `*** ${userId}-登录成功 ***`);
+
+socket.on('local', des => {
+    localPeerConnection.setRemoteDescription(des);
+});
+</script>
+
+<script>
+   var f;
+  function startHandle() {
+    f = [...document.querySelector('input').files][0];
+
+    localVideo.src = URL.createObjectURL(f);
+    // navigator.mediaDevices.getUserMedia({ video: true }).then((mediaStream) => {
+    //     // 播放
+    //     localVideo.srcObject = mediaStream;
+
+    //     // 存储
+    //     localStream = mediaStream; 
+    // })
+    localStream = localVideo.captureStream();
+  }
+
+  function callHandle() {
+
+    localPeerConnection = new RTCPeerConnection();
+
+    localPeerConnection.addEventListener('icecandidate', event => {
+        const iceCandidate = event.candidate;
+
+        if (iceCandidate) {
+            const newIceCandidate = new RTCIceCandidate(iceCandidate);
+            socket.emit('ice', newIceCandidate);
+        }
+    });
+
+    localStream.getTracks().forEach((track) => {
+        localPeerConnection.addTrack(track, localStream)
+    })
+
+    localPeerConnection.createOffer({ offerToReceiveVideo: 1 }).then(description => {
+        localPeerConnection.setLocalDescription(description);
+
+        socket.emit('remote', description);
+    });
+  }
+
+  function hangupHandle() {
+    localPeerConnection.close();
+  }
+</script>
+
+<script>
+  document.getElementById('startBtn').addEventListener('click', startHandle);
+  document.getElementById('callBtn').addEventListener('click', callHandle);
+  document.getElementById('hangupBtn').addEventListener('click', hangupHandle);
+</script>

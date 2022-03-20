@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo</title>
+    <style>
+        video {
+            width: 320px;
+        }
+    </style>
+</head>
+<body>
+    <video id="remoteVideo" autoplay playsinline></video>
+</body>
+</html>
+<script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+<script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+
+<script>
+let remotePeerConnection;
+const remoteVideo = document.getElementById('remoteVideo');
+
+var socket = io();
+var userId = Math.floor(Math.random() * 1000);
+
+socket.on('chat message', function(msg){
+    console.log('信息:', msg);
+});
+socket.emit('chat message', `*** ${userId}-登录成功 ***`);
+
+socket.on('remote', des => {
+  remotePeerConnection.setRemoteDescription(des);
+
+  remotePeerConnection.createAnswer().then((description) => {
+      remotePeerConnection.setLocalDescription(description)
+
+      // 返回相应信息
+      socket.emit('local', description);
+  })
+});
+
+socket.on('ice', msg => {
+  remotePeerConnection.addIceCandidate(msg);
+});
+</script>
+
+<script>
+    remotePeerConnection = new RTCPeerConnection();
+
+    remotePeerConnection.addEventListener('icecandidate', event => {
+
+        const peerConnection = event.target;
+        const iceCandidate = event.candidate;
+
+        if (iceCandidate) {
+            const newIceCandidate = new RTCIceCandidate(iceCandidate);
+
+            peerConnection.addIceCandidate(newIceCandidate);
+        }
+    });
+
+    remotePeerConnection.addEventListener('track', event => {
+      console.log('%c 观察流:', 'color:red;font-size:20px;', event);
+      window.stream = event.streams[0];
+      setTimeout(() => {
+        remoteVideo.srcObject = stream
+      }, 5000)
+    });
+</script>
